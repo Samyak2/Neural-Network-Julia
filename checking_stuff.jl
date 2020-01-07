@@ -23,7 +23,12 @@ parameters = initialize_parameters([5 10 1])
 
 function printdict(dict)
     for (key, value) in dict
-        println(key, " ",size(value))
+        println(key, " ", size(value))
+    end
+end
+function printdict_full(dict)
+    for (key, value) in dict
+        println(key, " ", (value))
     end
 end
 printdict(parameters)
@@ -78,8 +83,8 @@ printdict(parameters)
 
 
 X = randn(5, 100)
-a2, caches = forward_prop(X, parameters, [5 10 1], [relu, relu, sigmoid])
-a2, caches = forward_prop(X, parameters, [5 10 1])
+a2, caches = forward_prop(X, parameters, [5 10 1], [relu, sigmoid])
+# a2, caches = forward_prop(X, parameters, [5 10 1])
 println(a2)
 # println(caches)
 
@@ -141,9 +146,41 @@ Y = [0.777085  0.248755  0.660713  0.37982  0.978839  0.182363  0.07204  0.85544
 #     return grads
 # end
 
-grads = backward_prop(randn(1, 100), a2, parameters, caches, [5 10 1])
+# grads = backward_prop(randn(1, 100), a2, parameters, caches, [5 10 1])
+# printdict(grads)
+# @assert size(grads["dw1"]) == size(parameters["W1"])
+grads = backward_prop(randn(1, 100), a2, parameters, caches, [5 10 1], [relu, sigmoid])
 printdict(grads)
 @assert size(grads["dw1"]) == size(parameters["W1"])
-grads = backward_prop(randn(1, 100), a2, parameters, caches, [5 10 1], [relu, relu, sigmoid])
-printdict(grads)
-@assert size(grads["dw1"]) == size(parameters["W1"])
+
+# function update_parameters(parameters::Dict{String, Array{Float64}}, grads::Dict{String, Array{Float64}}, layer_dims::Array{Int}, learning_rate::Float64)
+#     num_layers = length(layer_dims)
+#     for l = 1:num_layers-1
+#         parameters[string("W", l)] += learning_rate .* grads[string("dw", l)]
+#         parameters[string("b", l)] += learning_rate .* grads[string("db", l)]
+#     end
+#     return parameters
+# end
+
+printdict_full(parameters)
+update_parameters(parameters, grads, [5 10 1], 0.01)
+printdict_full(parameters)
+
+function neural_network_dense(layer_dims::Array{Int}, num_iterations::Int, learning_rate::Float64, activations=Nothing)
+    num_layers = length(layer_dims) # calculate number of layers
+
+    # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
+    if activations === Nothing
+        activations = Array{Function}(undef, num_layers-1)
+        for i = 1:num_layers-2
+            activations[i] = relu
+        end
+        activations[num_layers-1] = sigmoid
+    end
+    activations = Tuple(activations)
+
+    parameters = initialize_parameters(layer_dims)
+
+    
+
+end

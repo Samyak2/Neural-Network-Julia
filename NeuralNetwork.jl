@@ -1,6 +1,6 @@
 include("activations.jl")
 
-function initialize_parameters(layer_dims)
+function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float64}}
     parameters = Dict{String, Array{Float64}}()
     for i = 2:length(layer_dims)
         parameters[string("W", i-1)] = randn(layer_dims[i], layer_dims[i-1]) * 0.01
@@ -9,19 +9,9 @@ function initialize_parameters(layer_dims)
     return parameters
 end
 
-function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations=Nothing)
+function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations=Nothing)::Tuple{Array{Float64}, Dict{String, Array{Float64}}}
     num_layers = length(layer_dims)
 
-    if activations === Nothing
-        activations = Dict()
-        for i = 1:num_layers-1
-            # println("relu")
-            activations[i] = relu
-        end
-        # println(sigmoid)
-        activations[num_layers] = sigmoid
-    end
-    # println(activations)
     caches = Dict{String, Array{Float64}}()
 
     caches[string("A", 0)] = X
@@ -37,31 +27,23 @@ function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}
     return Ai, caches
 end
 
-function cost_binary(Y, Ŷ)
+function cost_binary(Y::Array{Float64}, Ŷ::Array{Float64})::Float64
     @assert length(Y) == length(Ŷ)
     m = length(Y)
 
     cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
 end
 
-function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{String, Array{Float64}}, caches::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations=Nothing)
+function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{String, Array{Float64}}, caches::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations=Nothing)::Dict{String, Array{Float64}}
 
     num_layers = length(layer_dims)
     @assert length(Y) == length(Ŷ)
     m = size(Y)[2]
 
-    if activations === Nothing
-        activations = Dict()
-        for i = 1:num_layers-1
-            activations[i] = relu_back
-        end
-        activations[num_layers] = sigmoid_back
-    else
-        activations_orig = activations
-        activations = []
-        for activation in activations_orig
-            push!(activations, @eval ($(Symbol("$activation", "_back"))))
-        end
+    activations_orig = activations
+    activations = []
+    for activation in activations_orig
+        push!(activations, @eval ($(Symbol("$activation", "_back"))))
     end
     # println(activations)
 
@@ -77,4 +59,13 @@ function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{
     end
 
     return grads
+end
+
+function update_parameters(parameters::Dict{String, Array{Float64}}, grads::Dict{String, Array{Float64}}, layer_dims::Array{Int}, learning_rate::Float64)::Dict{String, Array{Float64}}
+    num_layers = length(layer_dims)
+    for l = 1:num_layers-1
+        parameters[string("W", l)] += learning_rate .* grads[string("dw", l)]
+        parameters[string("b", l)] += learning_rate .* grads[string("db", l)]
+    end
+    return parameters
 end
