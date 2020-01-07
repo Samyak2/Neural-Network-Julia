@@ -39,3 +39,10 @@ function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}
 
     return Ai, caches
 end
+
+function cost_binary(Y, Ŷ)
+    @assert length(Y) == length(Ŷ)
+    m = length(Y)
+
+    cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
+end

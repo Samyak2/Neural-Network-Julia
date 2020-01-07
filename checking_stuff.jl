@@ -79,3 +79,26 @@ X = randn(5, 100)
 a2, caches = forward_prop(X, a, [5 10 1])
 println(a2)
 # println(caches)
+
+# function cost_binary(Y, Ŷ)
+#     @assert length(Y) == length(Ŷ)
+#     m = length(Y)
+
+#     cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
+# end
+
+Y = [0.777085  0.248755  0.660713  0.37982  0.978839  0.182363  0.07204  0.855448  0.37393  0.40736]
+@assert cost_binary(Y, Y) == 0.4982477807320199
+
+# function sigmoid_back(x)
+#     sig = sigmoid(x)
+#     return sig*(1-sig)
+# end
+
+# function relu_back(x)
+#     if x>0
+#         return 1
+#     else
+#         return 0
+#     end
+# end
