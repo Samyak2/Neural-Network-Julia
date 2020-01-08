@@ -1,5 +1,32 @@
 include("activations.jl")
 
+"""
+    initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float64}}
+
+Create and initialize a parameters dict to store parameters of a L-layer feedforward neural network.
+The single argument to this function is an array representing number of units in each layer.
+
+Parameters Wi (weights) and bi (biases) are initialized for every layer other than the input layer.
+Weights are intialized randomly and biases are initialized to zeros.
+
+# Examples
+```jldoctest
+julia> parameters = initialize_parameters([5 10 1])
+Dict{String,Array{Float64,N} where N} with 4 entries:
+  "W2" => [-0.00305799 0.0119367 … -0.00322732 0.00213387]
+  "W1" => [-0.00599823 -0.0130222 … 0.00449422 0.00915462; 0.0145317 0.0131843 … -0.00216658 0.0102101; … ; -0.00749814 0.00917309 … 0.00354458 -0.00476792; 0.00293553 0.0156417 … -0.00641187 0.0160924]
+  "b2" => [0.0]
+  "b1" => [0.0; 0.0; … ; 0.0; 0.0]
+
+julia> for (key, value) in parameters
+           println(key, " ", size(value))
+       end
+W2 (1, 10)
+W1 (10, 5)
+b2 (1, 1)
+b1 (10, 1)
+```
+"""
 function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float64}}
     parameters = Dict{String, Array{Float64}}()
     for i = 2:length(layer_dims)
