@@ -36,7 +36,7 @@ function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float
     return parameters
 end
 
-function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations=Nothing)::Tuple{Array{Float64}, Dict{String, Array{Float64}}}
+function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations::Tuple)::Tuple{Array{Float64}, Dict{String, Array{Float64}}}
     num_layers = length(layer_dims)
 
     caches = Dict{String, Array{Float64}}()
@@ -61,17 +61,17 @@ function cost_binary(Y::Array{Float64}, Ŷ::Array{Float64})::Float64
     cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
 end
 
-function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{String, Array{Float64}}, caches::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations=Nothing)::Dict{String, Array{Float64}}
+function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{String, Array{Float64}}, caches::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations::Tuple)::Dict{String, Array{Float64}}
 
     num_layers = length(layer_dims)
     @assert length(Y) == length(Ŷ)
     m = size(Y)[2]
 
-    activations_orig = activations
-    activations = []
-    for activation in activations_orig
-        push!(activations, @eval ($(Symbol("$activation", "_back"))))
-    end
+    # activations_orig = activations
+    # activations = []
+    # for activation in activations_orig
+    #     push!(activations, @eval ($(Symbol("$activation", "_back"))))
+    # end
     # println(activations)
 
     dA = sum(.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
@@ -94,5 +94,41 @@ function update_parameters(parameters::Dict{String, Array{Float64}}, grads::Dict
         parameters[string("W", l)] += learning_rate .* grads[string("dw", l)]
         parameters[string("b", l)] += learning_rate .* grads[string("db", l)]
     end
+    return parameters
+end
+
+function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Float64, activations=Nothing)
+    num_layers = length(layer_dims) # calculate number of layers
+
+    # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
+    if activations === Nothing
+        activations = Array{Function}(undef, num_layers-1)
+        for i = 1:num_layers-2
+            activations[i] = relu
+        end
+        activations[num_layers-1] = sigmoid
+    end
+    activations = Tuple(activations)
+    println(activations)
+    activations_back = []
+    for activation in activations
+        push!(activations_back, @eval ($(Symbol("$activation", "_back"))))
+    end
+    activations_back = Tuple(activations_back)
+    println(activations_back)
+
+    parameters = initialize_parameters(layer_dims)
+
+    for iteration = 1:num_iterations
+        Ŷ, caches = forward_prop(X, parameters, layer_dims, activations)
+        grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
+        parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
+
+        if iteration % 1 == 0
+            cost = cost_binary(Y, Ŷ)
+            println("Cost at iteration $iteration is $cost")
+        end
+    end
+
     return parameters
 end

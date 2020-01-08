@@ -83,7 +83,7 @@ printdict(parameters)
 
 
 X = randn(5, 100)
-a2, caches = forward_prop(X, parameters, [5 10 1], [relu, sigmoid])
+a2, caches = forward_prop(X, parameters, [5 10 1], (relu, sigmoid))
 # a2, caches = forward_prop(X, parameters, [5 10 1])
 println(a2)
 # println(caches)
@@ -166,21 +166,43 @@ printdict_full(parameters)
 update_parameters(parameters, grads, [5 10 1], 0.01)
 printdict_full(parameters)
 
-function neural_network_dense(layer_dims::Array{Int}, num_iterations::Int, learning_rate::Float64, activations=Nothing)
-    num_layers = length(layer_dims) # calculate number of layers
+# function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Float64, activations=Nothing)
+#     num_layers = length(layer_dims) # calculate number of layers
+#
+#     # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
+#     if activations === Nothing
+#         activations = Array{Function}(undef, num_layers-1)
+#         for i = 1:num_layers-2
+#             activations[i] = relu
+#         end
+#         activations[num_layers-1] = sigmoid
+#     end
+#     activations = Tuple(activations)
+#     println(activations)
+#     activations_back = []
+#     for activation in activations
+#         push!(activations_back, @eval ($(Symbol("$activation", "_back"))))
+#     end
+#     activations_back = Tuple(activations_back)
+#     println(activations_back)
+#
+#     parameters = initialize_parameters(layer_dims)
+#
+#     for iteration = 1:num_iterations
+#         Ŷ, caches = forward_prop(X, parameters, layer_dims, activations)
+#         grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
+#         parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
+#
+#         if iteration % 1 == 0
+#             cost = cost_binary(Y, Ŷ)
+#             println("Cost at iteration $iteration is $cost")
+#         end
+#     end
+#
+#     return parameters
+# end
 
-    # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
-    if activations === Nothing
-        activations = Array{Function}(undef, num_layers-1)
-        for i = 1:num_layers-2
-            activations[i] = relu
-        end
-        activations[num_layers-1] = sigmoid
-    end
-    activations = Tuple(activations)
-
-    parameters = initialize_parameters(layer_dims)
-
-    
-
-end
+X = randn(10, 100)
+Y = randn(1, 100)
+layer_dims = [10 10 1]
+neural_network_dense(X, Y, layer_dims, 100, 0.05)
