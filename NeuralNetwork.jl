@@ -27,8 +27,8 @@ b2 (1, 1)
 b1 (10, 1)
 ```
 """
-function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float64}}
-    parameters = Dict{String, Array{Float64}}()
+function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float32}}
+    parameters = Dict{String, Array{Float32}}()
     for i = 2:length(layer_dims)
         parameters[string("W", i-1)] = randn(layer_dims[i], layer_dims[i-1]) * 0.01
         parameters[string("b", i-1)] = zeros(layer_dims[i], 1)
@@ -36,7 +36,7 @@ function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float
     return parameters
 end
 
-function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations::Tuple)::Tuple{Array{Float64}, Dict{String, Array{Float64}}}
+function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}}, layer_dims::Array{Int}, activations::Tuple)::Tuple{Array{Float32}, Dict{String, Array{Float32}}}
     num_layers = length(layer_dims)
 
     caches = Dict{String, Array{Float64}}()
@@ -54,18 +54,21 @@ function forward_prop(X::Array{Float64}, parameters::Dict{String, Array{Float64}
     return Ai, caches
 end
 
-function cost_binary(Y::Array{Float64}, Ŷ::Array{Float64})::Float64
+function cost_binary(Y::Array{Float32}, Ŷ::Array{Float32})::Float32
     @assert length(Y) == length(Ŷ)
     m = length(Y)
 
     cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
+    # println("cost is ", string(cost, Y[1:30], Ŷ[1:30]))
+    return cost
 end
 
-function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{String, Array{Float64}}, caches::Dict{String, Array{Float64}}, layer_dims::Array{Int}, activations::Tuple)::Dict{String, Array{Float64}}
+function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{String, Array{Float32}}, caches::Dict{String, Array{Float32}}, layer_dims::Array{Int}, activations::Tuple)::Dict{String, Array{Float32}}
 
     num_layers = length(layer_dims)
     @assert length(Y) == length(Ŷ)
     m = size(Y)[2]
+    # println("Number of examples(m) ", m)
 
     # activations_orig = activations
     # activations = []
@@ -74,9 +77,14 @@ function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{
     # end
     # println(activations)
 
-    dA = sum(.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
+    dA = sum(.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ)) / m
+    if isnan(dA)
+        println("dA was NaN!")
+        dA = randn(Float32)
+    end
+    # println("dA: ", dA)
 
-    grads = Dict{String, Array{Float64}}()
+    grads = Dict{String, Array{Float32}}()
 
     for l in num_layers-1:-1:1
         dZ = dA .* activations[l].(caches[string("Z", l)])
@@ -88,17 +96,24 @@ function backward_prop(Y::Array{Float64}, Ŷ::Array{Float64}, parameters::Dict{
     return grads
 end
 
-function update_parameters(parameters::Dict{String, Array{Float64}}, grads::Dict{String, Array{Float64}}, layer_dims::Array{Int}, learning_rate::Float64)::Dict{String, Array{Float64}}
+function update_parameters(parameters::Dict{String, Array{Float32}}, grads::Dict{String, Array{Float32}}, layer_dims::Array{Int}, learning_rate::Number)::Dict{String, Array{Float32}}
     num_layers = length(layer_dims)
     for l = 1:num_layers-1
-        parameters[string("W", l)] += learning_rate .* grads[string("dw", l)]
-        parameters[string("b", l)] += learning_rate .* grads[string("db", l)]
+        parameters[string("W", l)] -= learning_rate .* grads[string("dw", l)]
+        parameters[string("b", l)] -= learning_rate .* grads[string("db", l)]
+        # if l > 1
+        #     println("dw ", l, grads[string("dw", l)])
+        #     println("db ", l, grads[string("db", l)])
+        # end
     end
     return parameters
 end
 
-function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Float64, activations=Nothing)
+function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number, activations=Nothing)
     num_layers = length(layer_dims) # calculate number of layers
+
+    Y = convert(Array{Float32, 1}, Y)
+    Y = reshape(Y, 1, :)
 
     # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
     if activations === Nothing
