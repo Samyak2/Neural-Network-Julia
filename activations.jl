@@ -1,14 +1,14 @@
-function sigmoid(x::Float64)::Float64
+function sigmoid(x::Float32)::Float32
     return 1 / (1 + exp(-x))
 end
 
-function sigmoid_back(x::Float64)::Float64
+function sigmoid_back(x::Float32)::Float32
     sig = sigmoid(x)
     return sig*(1-sig)
 end
 
 
-function relu(x::Float64)::Float64
+function relu(x::Float32)::Float32
     if x>0
         return x
     else
@@ -16,7 +16,7 @@ function relu(x::Float64)::Float64
     end
 end
 
-function relu_back(x::Float64)::Float64
+function relu_back(x::Float32)::Float32
     if x>0
         return 1
     else
