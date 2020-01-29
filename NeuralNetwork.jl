@@ -36,15 +36,15 @@ function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float
     return parameters
 end
 
-function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}}, layer_dims::Array{Int}, activations::Tuple)::Tuple{Array{Float32}, Dict{String, Array{Float32}}}
-    num_layers = length(layer_dims)
+function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}}, activations::Tuple)::Tuple{Array{Float32}, Dict{String, Array{Float32}}}
+    num_layers = length(parameters) ÷ 2
 
-    caches = Dict{String, Array{Float64}}()
+    caches = Dict{String, Array{Float32}}()
 
     caches[string("A", 0)] = X
 
     Ai = Nothing
-    for i = 1:num_layers-1
+    for i = 1:num_layers
         Zi = parameters[string("W", i)] * caches[string("A", i-1)] .+ parameters[string("b", i)]
         Ai = activations[i].(Zi)
         caches[string("Z", i)] = Zi
@@ -112,8 +112,11 @@ end
 function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number, activations=Nothing)
     num_layers = length(layer_dims) # calculate number of layers
 
-    Y = convert(Array{Float32, 1}, Y)
-    Y = reshape(Y, 1, :)
+    Y = convert(Array{Float32, ndims(Y)}, Y)
+    if ndims(Y) == 1
+        Y = reshape(Y, 1, :)
+    end
+    @assert ndims(Y) == 2
 
     # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
     if activations === Nothing
@@ -135,7 +138,7 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
     parameters = initialize_parameters(layer_dims)
 
     for iteration = 1:num_iterations
-        Ŷ, caches = forward_prop(X, parameters, layer_dims, activations)
+        Ŷ, caches = forward_prop(X, parameters, activations)
         grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
         parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
 
@@ -145,5 +148,26 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
         end
     end
 
-    return parameters
+    return parameters, activations
+end
+
+function predict(X, Y, parameters::Dict{String, Array{Float32}}, activations::Tuple)
+    m = size(X)[2]
+    n = length(parameters)
+    predicts = zeros((1, m))
+
+    probas, caches = forward_prop(X, parameters, activations)
+
+    for i = 1 : m
+        if probas[1, i] > 0.5
+            predicts[1, i] = 1
+        else
+            predicts[1, i] = 0
+        end
+    end
+
+    accuracy = sum(predicts .== Y) / m
+    println("Accuracy is ", accuracy*100, "%")
+
+    return predicts, accuracy
 end
