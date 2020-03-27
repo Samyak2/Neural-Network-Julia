@@ -30,7 +30,7 @@ b1 (10, 1)
 function initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float32}}
     parameters = Dict{String, Array{Float32}}()
     for i = 2:length(layer_dims)
-        parameters[string("W", i-1)] = randn(layer_dims[i], layer_dims[i-1]) * 0.01
+        parameters[string("W", i-1)] = randn(layer_dims[i], layer_dims[i-1]) / sqrt(layer_dims[i-1]) # Xavier initialization
         parameters[string("b", i-1)] = zeros(layer_dims[i], 1)
     end
     return parameters
@@ -45,7 +45,7 @@ function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}
 
     Ai = Nothing
     for i = 1:num_layers
-        Zi = parameters[string("W", i)] * caches[string("A", i-1)] .+ parameters[string("b", i)]
+        Zi = parameters[string("W", i)] * caches[string("A", i-1)] .+ parameters[string("b", i)] # * is equivivalent to np.dot
         Ai = activations[i].(Zi)
         caches[string("Z", i)] = Zi
         caches[string("A", i)] = Ai
@@ -77,8 +77,8 @@ function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{
     # end
     # println(activations)
 
-    dA = sum(.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ)) / m
-    if isnan(dA)
+    dA = (.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
+    if all(isnan.(dA))
         println("dA was NaN!")
         dA = randn(Float32)
     end
@@ -136,15 +136,23 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
     println(activations_back)
 
     parameters = initialize_parameters(layer_dims)
+       for i in eachindex(parameters)
+        println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
+        println("\tInitial Variance of parameter ", i, " is ", var(parameters[i]))
+    end
 
     for iteration = 1:num_iterations
         Ŷ, caches = forward_prop(X, parameters, activations)
         grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
         parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
 
-        if iteration % 1 == 0
+        if iteration % 100 == 0
             cost = cost_binary(Y, Ŷ)
             println("Cost at iteration $iteration is $cost")
+            for i in eachindex(parameters)
+                println("\tMean of parameter ", i, " is ", mean(parameters[i]))
+                println("\tVariance of parameter ", i, " is ", var(parameters[i]))
+            end
         end
     end
 
