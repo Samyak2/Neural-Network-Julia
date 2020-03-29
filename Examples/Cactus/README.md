@@ -13,6 +13,8 @@ The dataset contains two zip files - `test.zip` and `train.zip`, and one CSV fil
     ```Julia
     add Images
     add FileIO
+    add JLD
+    add IJulia
     ```
 
     This might take a while.
@@ -21,8 +23,9 @@ The dataset contains two zip files - `test.zip` and `train.zip`, and one CSV fil
     ```julia
     using Images
     using FileIO
+    using JLD
     ```
 
-### Loading an Image
+# Usage
 
- -
+Check out the complete example in `Cactus.ipynb` (make sure to select the Julia 1.3 kernel in jupyter instead of the default python kernel)
