@@ -80,7 +80,7 @@ function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{
     dA = (.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
     if all(isnan.(dA))
         println("dA was NaN!")
-        dA = randn(Float32)
+        dA = randn(Float32) # TODO: Remove this hack
     end
     # println("dA: ", dA)
 
@@ -109,7 +109,7 @@ function update_parameters(parameters::Dict{String, Array{Float32}}, grads::Dict
     return parameters
 end
 
-function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number, activations=Nothing)
+function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number, activations=Nothing, print_stats=false)
     num_layers = length(layer_dims) # calculate number of layers
 
     Y = convert(Array{Float32, ndims(Y)}, Y)
@@ -127,18 +127,20 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
         activations[num_layers-1] = sigmoid
     end
     activations = Tuple(activations)
-    println(activations)
+#     println(activations)
     activations_back = []
     for activation in activations
         push!(activations_back, @eval ($(Symbol("$activation", "_back"))))
     end
     activations_back = Tuple(activations_back)
-    println(activations_back)
+#     println(activations_back)
 
     parameters = initialize_parameters(layer_dims)
-       for i in eachindex(parameters)
-        println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
-        println("\tInitial Variance of parameter ", i, " is ", var(parameters[i]))
+    if print_stats
+        for i in eachindex(parameters)
+            println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
+            println("\tInitial Variance of parameter ", i, " is ", var(parameters[i]))
+        end
     end
 
     for iteration = 1:num_iterations
@@ -149,9 +151,11 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
         if iteration % 100 == 0
             cost = cost_binary(Y, Ŷ)
             println("Cost at iteration $iteration is $cost")
-            for i in eachindex(parameters)
-                println("\tMean of parameter ", i, " is ", mean(parameters[i]))
-                println("\tVariance of parameter ", i, " is ", var(parameters[i]))
+            if print_stats
+                for i in eachindex(parameters)
+                    println("\tMean of parameter ", i, " is ", mean(parameters[i]))
+                    println("\tVariance of parameter ", i, " is ", var(parameters[i]))
+                end
             end
         end
     end
