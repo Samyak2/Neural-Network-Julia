@@ -1,4 +1,5 @@
 include("activationsGPU.jl")
+include("NeuralNetwork.jl")
 using CuArrays, Statistics
 
 """
@@ -143,7 +144,7 @@ function update_parameters(parameters::Dict{String, CuArray{Float32}}, grads::Di
     return parameters
 end
 
-function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number, activations=Nothing, print_stats=false)
+function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number; activations=Nothing, print_stats=false, parameters=nothing, resume=false)
     num_layers = length(layer_dims) # calculate number of layers
 
     Y = convert(CuArray{Float32, ndims(Y)}, Y)
@@ -162,14 +163,23 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
     end
     activations = Tuple(activations)
 #     println(activations)
-    activations_back = []
-    for activation in activations
-        push!(activations_back, @eval ($(Symbol("$activation", "_back"))))
-    end
-    activations_back = Tuple(activations_back)
+    activations_back = get_back_activations(activations)
 #     println(activations_back)
 
-    parameters = initialize_parameters(layer_dims)
+    init_params = false
+    if !resume
+        init_params=true
+    elseif (resume && parameters==nothing)
+        println("Cannot resume without parameters, pass parameters=parameters to resume training. Reinitializing parameters")
+        init_params=true
+    end
+    
+    if init_params
+        parameters = initialize_parameters(layer_dims)
+    end
+
+    @assert parameters != nothing
+    
     if print_stats
         for i in eachindex(parameters)
             println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
@@ -201,11 +211,15 @@ function predict(X, Y, parameters::Dict{String, CuArray{Float32}}, activations::
     m = size(X)[2]
     n = length(parameters)
     predicts = zeros((1, m))
+    
+    # Copy Y to CPU
+    Y = Array(Y)
 
     probas, caches = forward_prop(X, parameters, activations)
+    probas = Array(probas)
 
     for i = 1 : m
-        if probas[1, i] > 0.5
+        if probas[1, i] > 0.5f0
             predicts[1, i] = 1
         else
             predicts[1, i] = 0

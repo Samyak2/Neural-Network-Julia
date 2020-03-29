@@ -109,7 +109,16 @@ function update_parameters(parameters::Dict{String, Array{Float32}}, grads::Dict
     return parameters
 end
 
-function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number, activations=Nothing, print_stats=false)
+function get_back_activations(activations)
+    activations_back = []
+    for activation in activations
+        push!(activations_back, @eval ($(Symbol("$activation", "_back"))))
+    end
+    activations_back = Tuple(activations_back)
+    return activations_back
+end
+
+function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number; activations=Nothing, print_stats=false, parameters=nothing, resume=false)
     num_layers = length(layer_dims) # calculate number of layers
 
     Y = convert(Array{Float32, ndims(Y)}, Y)
@@ -128,14 +137,21 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
     end
     activations = Tuple(activations)
 #     println(activations)
-    activations_back = []
-    for activation in activations
-        push!(activations_back, @eval ($(Symbol("$activation", "_back"))))
-    end
-    activations_back = Tuple(activations_back)
+    activations_back = get_back_activations(activations)
 #     println(activations_back)
 
-    parameters = initialize_parameters(layer_dims)
+    init_params = false
+    if !resume
+        init_params=true
+    elseif (resume && parameters==nothing)
+        println("Cannot resume without parameters, pass parameters=parameters to resume training. Reinitializing parameters")
+        init_params=true
+    end
+    
+    if init_params
+        parameters = initialize_parameters(layer_dims)
+    end
+    
     if print_stats
         for i in eachindex(parameters)
             println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
