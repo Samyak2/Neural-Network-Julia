@@ -4,7 +4,9 @@ A neural network implementation in Julia
 
 # Features
 
- - Currently, only a binary classifier is implemented
+ - Construct a neural network with any number of layers
+ - Only binary classification (for now)
+ - Support for training on GPU
 
 # Requirements
 
