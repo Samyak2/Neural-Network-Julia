@@ -31,20 +31,24 @@ Check out the [examples](./Examples) for complete end-to-end training and testin
 
 3. Use the `neural_network_dense` function to train the Neural Network. See the help section for more info - `?neural_network_dense` should provide the docs. Here is an example usage:
     ```julia
-    parameters, activations = neural_network_dense(train_data_x, train_data_y, [12288, 10, 1], 1000, 0.001)
+    parameters, activations = neural_network_dense(train_X, train_Y, [12288, 10, 1], 1000, 0.001)
     ```
     
     `[12288, 10, 1]` is the number of neurons in each layer, `1000` is the number of steps to train for and `0.001` is the learning rate.
 
 4. Get predictions and accuracy using the `predict` function. Again, check out the help page for more details - `?predict`. Example usage:
     ```julia
-    predicts, accuracy = predict(test_data_x, test_data_y, parameters, activations)
+    predicts, accuracy = predict(test_X, test_Y, parameters, activations)
     ```
 
-GPU Training:
+## GPU Training:
 
  - Import the necessary packages - `using CuArrays, CUDAnative, CUDAdrv`
- - Convert the training data to a `CuArray` - `train_X = CuArray(train_X)`
+ - Convert the training data to `CuArray`s:
+    ```julia
+    train_X = CuArray(train_X)
+    train_Y = CuArray(train_Y)
+    ```
  - Use the same `neural_network_dense` and `predict` functions
  - That's it! (All the optmization for GPU is internal, take a look at [NeuralNetworkGPU.jl](NeuralNetworkGPU.jl))
 
