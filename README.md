@@ -45,6 +45,7 @@ Check out the [examples](./Examples) for complete end-to-end training and testin
 
  - Import the necessary packages - `using CuArrays, CUDAnative, CUDAdrv`
  - Convert the training data to `CuArray`s:
+
     ```julia
     train_X = CuArray(train_X)
     train_Y = CuArray(train_Y)
