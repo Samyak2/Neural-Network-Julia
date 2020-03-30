@@ -1,6 +1,6 @@
 # Aerial Cactus Identification example
 
-[https://www.kaggle.com/c/aerial-cactus-identification](Kaggle Link)
+[Kaggle Link](https://www.kaggle.com/c/aerial-cactus-identification)
 
 ## Part 1: Loading data
 
