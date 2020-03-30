@@ -34,7 +34,7 @@ include("../../NeuralNetwork.jl")
 
 layer_dims = [12288, 7, 1]
 
-@btime neural_network_dense($train_data_x, $train_data_y_orig, $layer_dims, 100, 0.0075)
+# @btime neural_network_dense($train_data_x, $train_data_y_orig, $layer_dims, 100, 0.0075)
 
 parameters, activations = neural_network_dense(train_data_x, train_data_y_orig, layer_dims, 1000, 0.0075)
 

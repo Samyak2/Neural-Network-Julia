@@ -20,7 +20,33 @@ For GPU support, the following are required (make sure that their tests are pass
 
 # Usage
 
-TODO
+Check out the [examples](./Examples) for complete end-to-end training and testing examples.
+
+1. As of now, this has not been made into a Julia package. So you will have to include the `NeuralNetwork.jl` file to use it (also, there will be some JIT overhead during the first use). Download the files in this repo and import the functions by using (make sure to use the complete relative or absolute instead of just `"NeuralNetwork.jl"`):
+    ```julia
+    include("NeuralNetwork.jl")
+    ```
+
+2. Load your training and testing data in the form of `Float32` arrays (the outputs Y can be `Int` also).
+
+3. Use the `neural_network_dense` function to train the Neural Network. See the help section for more info - `?neural_network_dense` should provide the docs. Here is an example usage:
+    ```julia
+    parameters, activations = neural_network_dense(train_data_x, train_data_y, [12288, 10, 1], 1000, 0.001)
+    ```
+    
+    `[12288, 10, 1]` is the number of neurons in each layer, `1000` is the number of steps to train for and `0.001` is the learning rate.
+
+4. Get predictions and accuracy using the `predict` function. Again, check out the help page for more details - `?predict`. Example usage:
+    ```julia
+    predicts, accuracy = predict(test_data_x, test_data_y, parameters, activations)
+    ```
+
+GPU Training:
+
+ - Import the necessary packages - `using CuArrays, CUDAnative, CUDAdrv`
+ - Convert the training data to a `CuArray` - `train_X = CuArray(train_X)`
+ - Use the same `neural_network_dense` and `predict` functions
+ - That's it! (All the optmization for GPU is internal, take a look at [NeuralNetworkGPU.jl](NeuralNetworkGPU.jl))
 
 # TODO
 

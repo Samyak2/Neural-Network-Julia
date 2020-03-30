@@ -3,22 +3,24 @@ include("NeuralNetwork.jl")
 using CuArrays, Statistics
 
 """
-    initialize_parameters(layer_dims::Array{Int})::Dict{String, Array{Float64}}
+    initialize_parameters(layer_dims::CuArray{Int})::Dict{String, CuArray{Float64}}
 
 Create and initialize a parameters dict to store parameters of a L-layer feedforward neural network.
-The single argument to this function is an array representing number of units in each layer.
+The first argument to this function is an array representing number of units in each layer.
+The second argument is a placeholder to infer the type of Arrays to initialize - either a normal array or a GPU based CuArray.
 
 Parameters Wi (weights) and bi (biases) are initialized for every layer other than the input layer.
-Weights are intialized randomly and biases are initialized to zeros.
+Weights are intialized randomly using Xavier initialization method (to normalize them) and
+biases are initialized to zeros.
 
 # Examples
 ```jldoctest
-julia> parameters = initialize_parameters([5 10 1])
-Dict{String,Array{Float64,N} where N} with 4 entries:
-  "W2" => [-0.00305799 0.0119367 … -0.00322732 0.00213387]
-  "W1" => [-0.00599823 -0.0130222 … 0.00449422 0.00915462; 0.0145317 0.0131843 … -0.00216658 0.0102101; … ; -0.00749814 0.00917309 … 0.00354458 -0.00476792; 0.00293553 0.0156417 … -0.00641187 0.0160924]
-  "b2" => [0.0]
-  "b1" => [0.0; 0.0; … ; 0.0; 0.0]
+julia> parameters = initialize_parameters([5 10 1], CuArray([0]))
+Dict{String,CuArray{Float32,N,P} where P where N} with 4 entries:
+  "W2" => Float32[-0.00542962 0.00721382 … 0.185659 -0.355868]
+  "W1" => Float32[0.679642 -0.365945 … 0.145359 -0.47302; 0.200724 -0.339901 … 1.11603 0.551288; … ; -0.93578 -0.0143422 … 0.433826 -0.425189; -0.70129 -0.077…
+  "b2" => Float32[0.0]
+  "b1" => Float32[0.0; 0.0; … ; 0.0; 0.0]
 
 julia> for (key, value) in parameters
            println(key, " ", size(value))
@@ -29,7 +31,7 @@ b2 (1, 1)
 b1 (10, 1)
 ```
 """
-function initialize_parameters(layer_dims::Array{Int})::Dict{String, CuArray{Float32}}
+function initialize_parameters(layer_dims::Array{Int}, Y::CuArray)::Dict{String, CuArray{Float32}}
     parameters = Dict{String, CuArray{Float32}}()
     for i = 2:length(layer_dims)
         parameters[string("W", i-1)] = CuArrays.randn(layer_dims[i], layer_dims[i-1]) ./ sqrt(layer_dims[i-1]) # Xavier initialization
@@ -144,90 +146,8 @@ function update_parameters(parameters::Dict{String, CuArray{Float32}}, grads::Di
     return parameters
 end
 
-function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number; activations=Nothing, print_stats=false, parameters=nothing, resume=false)
-    num_layers = length(layer_dims) # calculate number of layers
-
+function reshape_Y(Y::CuArray)
     Y = convert(CuArray{Float32, ndims(Y)}, Y)
-    if ndims(Y) == 1
-        Y = reshape(Y, 1, :)
-    end
-    @assert ndims(Y) == 2
-
-    # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
-    if activations === Nothing
-        activations = Array{Function}(undef, num_layers-1)
-        for i = 1:num_layers-2
-            activations[i] = relu
-        end
-        activations[num_layers-1] = sigmoid
-    end
-    activations = Tuple(activations)
-#     println(activations)
-    activations_back = get_back_activations(activations)
-#     println(activations_back)
-
-    init_params = false
-    if !resume
-        init_params=true
-    elseif (resume && parameters==nothing)
-        println("Cannot resume without parameters, pass parameters=parameters to resume training. Reinitializing parameters")
-        init_params=true
-    end
-    
-    if init_params
-        parameters = initialize_parameters(layer_dims)
-    end
-
-    @assert parameters != nothing
-    
-    if print_stats
-        for i in eachindex(parameters)
-            println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
-            println("\tInitial Variance of parameter ", i, " is ", var(parameters[i]))
-        end
-    end
-
-    for iteration = 1:num_iterations
-        Ŷ, caches = forward_prop(X, parameters, activations)
-        grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
-        parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
-
-        if iteration % 100 == 0
-            cost = cost_binary(Y, Ŷ)
-            println("Cost at iteration $iteration is $cost")
-            if print_stats
-                for i in eachindex(parameters)
-                    println("\tMean of parameter ", i, " is ", mean(parameters[i]))
-                    println("\tVariance of parameter ", i, " is ", var(parameters[i]))
-                end
-            end
-        end
-    end
-
-    return parameters, activations
-end
-
-function predict(X, Y, parameters::Dict{String, CuArray{Float32}}, activations::Tuple)
-    m = size(X)[2]
-    n = length(parameters)
-    predicts = zeros((1, m))
-    
-    # Copy Y to CPU
-    Y = Array(Y)
-
-    probas, caches = forward_prop(X, parameters, activations)
-    probas = Array(probas)
-
-    for i = 1 : m
-        if probas[1, i] > 0.5f0
-            predicts[1, i] = 1
-        else
-            predicts[1, i] = 0
-        end
-    end
-
-    accuracy = sum(predicts .== Y) / m
-    println("Accuracy is ", accuracy*100, "%")
-
-    return predicts, accuracy
+    Y = reshape(Y, 1, :)
+    return Y
 end
