@@ -43,6 +43,7 @@ Check out the [examples](./Examples) for complete end-to-end training and testin
 
 ## GPU Training:
 
+ - `include("NeuralNetworkGPU.jl")`
  - Import the necessary packages - `using CuArrays, CUDAnative, CUDAdrv`
  - Convert the training data to `CuArray`s:
 
