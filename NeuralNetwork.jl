@@ -32,23 +32,29 @@ b1 (10, 1)
 function initialize_parameters(layer_dims::Array{Int}, Y::Array)::Dict{String, Array{Float32}}
     parameters = Dict{String, Array{Float32}}()
     for i = 2:length(layer_dims)
+        # randomly initialize weights and reduce their magnitude (leads to small weights, prevents gradient explosion)
         parameters[string("W", i-1)] = randn(layer_dims[i], layer_dims[i-1]) / sqrt(layer_dims[i-1]) # Xavier initialization
+        # initialize biases to zero
         parameters[string("b", i-1)] = zeros(layer_dims[i], 1)
     end
     return parameters
 end
 
 function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}}, activations::Tuple)::Tuple{Array{Float32}, Dict{String, Array{Float32}}}
-    num_layers = length(parameters) ÷ 2
+    num_layers = length(parameters) ÷ 2  # number of layers in the network
 
-    caches = Dict{String, Array{Float32}}()
+    caches = Dict{String, Array{Float32}}()  # init dict to store Z and A values for backprop
 
+    # A0 is X (input)
     caches[string("A", 0)] = X
 
     Ai = Nothing
     for i = 1:num_layers
+        # Z = W * A_prev + b
         Zi = parameters[string("W", i)] * caches[string("A", i-1)] .+ parameters[string("b", i)] # * is equivivalent to np.dot
+        # A = activation(Z)
         Ai = activations[i].(Zi)
+        # store A and Z for use in backprop
         caches[string("Z", i)] = Zi
         caches[string("A", i)] = Ai
     end
@@ -56,29 +62,24 @@ function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}
     return Ai, caches
 end
 
+"""
+Simple log binary loss
+"""
 function cost_binary(Y::Array{Float32}, Ŷ::Array{Float32})::Float32
     @assert length(Y) == length(Ŷ)
     m = length(Y)
 
     cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
-    # println("cost is ", string(cost, Y[1:30], Ŷ[1:30]))
     return cost
 end
 
 function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{String, Array{Float32}}, caches::Dict{String, Array{Float32}}, layer_dims::Array{Int}, activations::Tuple)::Dict{String, Array{Float32}}
 
     num_layers = length(layer_dims)
-    @assert length(Y) == length(Ŷ)
+    @assert length(Y) == length(Ŷ) # verify that predictions and targets have same length
     m = size(Y)[2]
-    # println("Number of examples(m) ", m)
 
-    # activations_orig = activations
-    # activations = []
-    # for activation in activations_orig
-    #     push!(activations, @eval ($(Symbol("$activation", "_back"))))
-    # end
-    # println(activations)
-
+    # formula to get initial gradient
     dA = (.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
     if all(isnan.(dA))
         println("dA was NaN!")
@@ -86,13 +87,14 @@ function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{
     end
     # println("dA: ", dA)
 
+    # initialize dict to store gradients
     grads = Dict{String, Array{Float32}}()
 
     for l in num_layers-1:-1:1
-        dZ = dA .* activations[l].(caches[string("Z", l)])
-        grads[string("dw", l)] = 1/m .* (dZ * transpose(caches[string("A", l-1)]))
+        dZ = dA .* activations[l].(caches[string("Z", l)])  # dZ = dA * activation(Z)
+        grads[string("dw", l)] = 1/m .* (dZ * transpose(caches[string("A", l-1)]))  # dW = 1/m (dZ * A(l-1)')
         grads[string("db", l)] = 1/m .* sum(dZ, dims=2)
-        dA = transpose(parameters[string("W", l)]) * dZ
+        dA = transpose(parameters[string("W", l)]) * dZ  # dA = Wl' * dZ
     end
 
     return grads
@@ -101,16 +103,16 @@ end
 function update_parameters(parameters::Dict{String, Array{Float32}}, grads::Dict{String, Array{Float32}}, layer_dims::Array{Int}, learning_rate::Number)::Dict{String, Array{Float32}}
     num_layers = length(layer_dims)
     for l = 1:num_layers-1
+        # Simple gradient descent
         parameters[string("W", l)] -= learning_rate .* grads[string("dw", l)]
         parameters[string("b", l)] -= learning_rate .* grads[string("db", l)]
-        # if l > 1
-        #     println("dw ", l, grads[string("dw", l)])
-        #     println("db ", l, grads[string("db", l)])
-        # end
     end
     return parameters
 end
 
+"""
+Helper functions to get backward activations from activations
+"""
 function get_back_activations(activations)
     activations_back = []
     for activation in activations
@@ -120,6 +122,7 @@ function get_back_activations(activations)
     return activations_back
 end
 
+# Prevent Rank 0 array and use Float32 for better consistency
 function reshape_Y(Y::Array)
     Y = convert(Array{Float32, ndims(Y)}, Y)
     Y = reshape(Y, 1, :)
@@ -174,10 +177,9 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
         activations[num_layers-1] = sigmoid
     end
     activations = Tuple(activations)
-#     println(activations)
     activations_back = get_back_activations(activations)
-#     println(activations_back)
 
+    # Check if training has to resume or start over form beginning
     init_params = false
     if !resume
         init_params=true
@@ -185,11 +187,12 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
         println("Cannot resume without parameters, pass parameters=parameters to resume training. Reinitializing parameters")
         init_params=true
     end
-    
+
+    # initialize params if it has to
     if init_params
         parameters = initialize_parameters(layer_dims, Y)
     end
-    
+
     if print_stats
         for i in eachindex(parameters)
             println("\tInitial Mean of parameter ", i, " is ", mean(parameters[i]))
@@ -197,11 +200,13 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
         end
     end
 
+    # pass through the whole dataset num_iterations times
     for iteration = 1:num_iterations
         Ŷ, caches = forward_prop(X, parameters, activations)
         grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
         parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
 
+        # print stats every few steps
         if iteration % checkpoint_steps == 0
             cost = cost_binary(Y, Ŷ)
             println("Cost at iteration $iteration is $cost")
@@ -238,7 +243,7 @@ function predict(X, Y, parameters, activations::Tuple)
     m = size(X)[2]
     n = length(parameters)
     predicts = zeros((1, m))
-    
+
     # Copy Y to CPU
     Y = Array(Y)
 
