@@ -1,3 +1,8 @@
+using LinearAlgebra
+using TimerOutputs
+
+const to = TimerOutput()
+
 include("activations.jl")
 
 """
@@ -33,9 +38,9 @@ function initialize_parameters(layer_dims::Array{Int}, Y::Array)::Dict{String, A
     parameters = Dict{String, Array{Float32}}()
     for i = 2:length(layer_dims)
         # randomly initialize weights and reduce their magnitude (leads to small weights, prevents gradient explosion)
-        parameters[string("W", i-1)] = randn(layer_dims[i], layer_dims[i-1]) / sqrt(layer_dims[i-1]) # Xavier initialization
+        @timeit to "Init weights" parameters[string("W", i-1)] = randn(Float32, layer_dims[i], layer_dims[i-1]) / sqrt(layer_dims[i-1]) # Xavier initialization
         # initialize biases to zero
-        parameters[string("b", i-1)] = zeros(layer_dims[i], 1)
+        @timeit to "Init biases" parameters[string("b", i-1)] = zeros(Float32, layer_dims[i], 1)
     end
     return parameters
 end
@@ -51,9 +56,15 @@ function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}
     Ai = Nothing
     for i = 1:num_layers
         # Z = W * A_prev + b
-        Zi = parameters[string("W", i)] * caches[string("A", i-1)] .+ parameters[string("b", i)] # * is equivivalent to np.dot
+        @timeit to "calculate Zi" begin
+            Wi = parameters[string("W", i)]
+            Ai_prev = caches[string("A", i-1)]
+            Zi = zeros(Float32, size(Wi)[1], size(Ai_prev)[2])
+            mul!(Zi, Wi, Ai_prev)
+            Zi .+= parameters[string("b", i)]
+        end
         # A = activation(Z)
-        Ai = activations[i].(Zi)
+        @timeit to "calculate Ai" Ai = activations[i].(Zi)
         # store A and Z for use in backprop
         caches[string("Z", i)] = Zi
         caches[string("A", i)] = Ai
@@ -80,7 +91,7 @@ function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{
     m = size(Y)[2]
 
     # formula to get initial gradient
-    dA = (.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
+    @timeit to "Initial dA" dA = (.- Y ./ Ŷ .+ (1 .- Y) ./ (1 .- Ŷ))
     if all(isnan.(dA))
         println("dA was NaN!")
         dA = randn(Float32) # TODO: Remove this hack
@@ -91,10 +102,10 @@ function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{
     grads = Dict{String, Array{Float32}}()
 
     for l in num_layers-1:-1:1
-        dZ = dA .* activations[l].(caches[string("Z", l)])  # dZ = dA * activation(Z)
-        grads[string("dw", l)] = 1/m .* (dZ * transpose(caches[string("A", l-1)]))  # dW = 1/m (dZ * A(l-1)')
-        grads[string("db", l)] = 1/m .* sum(dZ, dims=2)
-        dA = transpose(parameters[string("W", l)]) * dZ  # dA = Wl' * dZ
+        @timeit to "calculate dZ" dZ = dA .* activations[l].(caches[string("Z", l)])  # dZ = dA * activation(Z)
+        @timeit to "calculate dw" grads[string("dw", l)] = 1/m .* (dZ * transpose(caches[string("A", l-1)]))  # dW = 1/m (dZ * A(l-1)')
+        @timeit to "calculate db" grads[string("db", l)] = 1/m .* sum(dZ, dims=2)
+        @timeit to "calculate dA" dA = transpose(parameters[string("W", l)]) * dZ  # dA = Wl' * dZ
     end
 
     return grads
@@ -104,8 +115,8 @@ function update_parameters(parameters::Dict{String, Array{Float32}}, grads::Dict
     num_layers = length(layer_dims)
     for l = 1:num_layers-1
         # Simple gradient descent
-        parameters[string("W", l)] -= learning_rate .* grads[string("dw", l)]
-        parameters[string("b", l)] -= learning_rate .* grads[string("db", l)]
+        @timeit to "update dW" parameters[string("W", l)] -= learning_rate .* grads[string("dw", l)]
+        @timeit to "update db" parameters[string("b", l)] -= learning_rate .* grads[string("db", l)]
     end
     return parameters
 end
@@ -163,34 +174,38 @@ Returns:
 - `activations`: activations used in training (for passing them to `predict` function)
 """
 function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number; activations=Nothing, print_stats=false, parameters=nothing, resume=false, checkpoint_steps=100)
-    num_layers = length(layer_dims) # calculate number of layers
+    @timeit to "calculate num layers" num_layers = length(layer_dims) # calculate number of layers
 
-    Y = reshape_Y(Y)
+    @timeit to "reshape Y" Y = reshape_Y(Y)
     @assert ndims(Y) == 2
 
-    # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
-    if activations === Nothing
-        activations = Array{Function}(undef, num_layers-1)
-        for i = 1:num_layers-2
-            activations[i] = relu
+    @timeit to "get back activations" begin
+        # if activations are not given, assume that all hidden layers have relu and output layer has sigmoid
+        if activations === Nothing
+            activations = Array{Function}(undef, num_layers-1)
+            for i = 1:num_layers-2
+                activations[i] = relu
+            end
+            activations[num_layers-1] = sigmoid
         end
-        activations[num_layers-1] = sigmoid
-    end
-    activations = Tuple(activations)
-    activations_back = get_back_activations(activations)
-
-    # Check if training has to resume or start over form beginning
-    init_params = false
-    if !resume
-        init_params=true
-    elseif (resume && parameters==nothing)
-        println("Cannot resume without parameters, pass parameters=parameters to resume training. Reinitializing parameters")
-        init_params=true
+        activations = Tuple(activations)
+        activations_back = get_back_activations(activations)
     end
 
-    # initialize params if it has to
-    if init_params
-        parameters = initialize_parameters(layer_dims, Y)
+    @timeit to "Initialize params" begin
+        # Check if training has to resume or start over form beginning
+        init_params = false
+        if !resume
+            init_params=true
+        elseif (resume && parameters==nothing)
+            println("Cannot resume without parameters, pass parameters=parameters to resume training. Reinitializing parameters")
+            init_params=true
+        end
+
+        # initialize params if it has to
+        if init_params
+            parameters = initialize_parameters(layer_dims, Y)
+        end
     end
 
     if print_stats
@@ -201,19 +216,23 @@ function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int,
     end
 
     # pass through the whole dataset num_iterations times
-    for iteration = 1:num_iterations
-        Ŷ, caches = forward_prop(X, parameters, activations)
-        grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
-        parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
+    @timeit to "Actual training" begin
+        for iteration = 1:num_iterations
+            @timeit to "forward prop" Ŷ, caches = forward_prop(X, parameters, activations)
+            @timeit to "backprop" grads = backward_prop(Y, Ŷ, parameters, caches, layer_dims, activations_back)
+            @timeit to "update params" parameters = update_parameters(parameters, grads, layer_dims, learning_rate)
 
-        # print stats every few steps
-        if iteration % checkpoint_steps == 0
-            cost = cost_binary(Y, Ŷ)
-            println("Cost at iteration $iteration is $cost")
-            if print_stats
-                for i in eachindex(parameters)
-                    println("\tMean of parameter ", i, " is ", mean(parameters[i]))
-                    println("\tVariance of parameter ", i, " is ", var(parameters[i]))
+            @timeit to "print stats" begin
+                # print stats every few steps
+                if iteration % checkpoint_steps == 0
+                    cost = cost_binary(Y, Ŷ)
+                    println("Cost at iteration $iteration is $cost")
+                    if print_stats
+                        for i in eachindex(parameters)
+                            println("\tMean of parameter ", i, " is ", mean(parameters[i]))
+                            println("\tVariance of parameter ", i, " is ", var(parameters[i]))
+                        end
+                    end
                 end
             end
         end
@@ -245,20 +264,22 @@ function predict(X, Y, parameters, activations::Tuple)
     predicts = zeros((1, m))
 
     # Copy Y to CPU
-    Y = Array(Y)
+    @timeit to "copy to CPU" Y = Array(Y)
 
-    probas, caches = forward_prop(X, parameters, activations)
-    probas = Array(probas)
+    @timeit to "forward prop" probas, caches = forward_prop(X, parameters, activations)
+    @timeit to "calculate probas" begin
+        probas = Array(probas)
 
-    for i = 1 : m
-        if probas[1, i] > 0.5f0
-            predicts[1, i] = 1
-        else
-            predicts[1, i] = 0
+        for i = 1 : m
+            if probas[1, i] > 0.5f0
+                predicts[1, i] = 1
+            else
+                predicts[1, i] = 0
+            end
         end
     end
 
-    accuracy = sum(predicts .== Y) / m
+    @timeit to "calculate accuracy" accuracy = sum(predicts .== Y) / m
     println("Accuracy is ", accuracy*100, "%")
 
     return predicts, accuracy

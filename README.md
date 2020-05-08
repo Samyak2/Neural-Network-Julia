@@ -11,6 +11,7 @@ A neural network implementation in Julia
 # Requirements
 
  - Julia 1.3
+ - TimerOutputs
  - IJulia (for jupyter notebooks given in the `Examples` directory)
  
 For GPU support, the following are required (make sure that their tests are passing):
@@ -39,6 +40,10 @@ Check out the [examples](./Examples) for complete end-to-end training and testin
 4. Get predictions and accuracy using the `predict` function. Again, check out the help page for more details - `?predict`. Example usage:
     ```julia
     predicts, accuracy = predict(test_X, test_Y, parameters, activations)
+    ```
+5. (Optional) To see the time taken for each step in the Neural Network, use
+    ```julia
+    print_timer(to)
     ```
 
 ## GPU Training:
