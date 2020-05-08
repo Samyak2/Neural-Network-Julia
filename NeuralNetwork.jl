@@ -84,7 +84,12 @@ function cost_binary(Y::Array{Float32}, Ŷ::Array{Float32})::Float32
     return cost
 end
 
-function backward_prop(Y::Array{Float32}, Ŷ::Array{Float32}, parameters::Dict{String, Array{Float32}}, caches::Dict{String, Array{Float32}}, layer_dims::Array{Int}, activations::Tuple)::Dict{String, Array{Float32}}
+function backward_prop(Y::Array{Float32},
+                       Ŷ::Array{Float32},
+                       parameters::Dict{String, Array{Float32}},
+                       caches::Dict{String, Array{Float32}},
+                       layer_dims::Array{Int},
+                       activations::Tuple)::Dict{String, Array{Float32}}
 
     num_layers = length(layer_dims)
     @assert length(Y) == length(Ŷ) # verify that predictions and targets have same length
@@ -173,7 +178,15 @@ Returns:
 - `parameters`: trained parameters
 - `activations`: activations used in training (for passing them to `predict` function)
 """
-function neural_network_dense(X, Y, layer_dims::Array{Int}, num_iterations::Int, learning_rate::Number; activations=Nothing, print_stats=false, parameters=nothing, resume=false, checkpoint_steps=100)
+function neural_network_dense(X, Y,
+                              layer_dims::Array{Int},
+                              num_iterations::Int,
+                              learning_rate::Number;
+                              activations=Nothing,
+                              print_stats=false,
+                              parameters=nothing,
+                              resume=false,
+                              checkpoint_steps=100)
     @timeit to "calculate num layers" num_layers = length(layer_dims) # calculate number of layers
 
     @timeit to "reshape Y" Y = reshape_Y(Y)
@@ -264,7 +277,10 @@ function predict(X, Y, parameters, activations::Tuple)
     predicts = zeros((1, m))
 
     # Copy Y to CPU
-    @timeit to "copy to CPU" Y = Array(Y)
+    if Y != nothing
+        @timeit to "copy to CPU" Y = Array(Y)
+        Y = reshape_Y(Y)
+    end
 
     @timeit to "forward prop" probas, caches = forward_prop(X, parameters, activations)
     @timeit to "calculate probas" begin
@@ -279,8 +295,11 @@ function predict(X, Y, parameters, activations::Tuple)
         end
     end
 
-    @timeit to "calculate accuracy" accuracy = sum(predicts .== Y) / m
-    println("Accuracy is ", accuracy*100, "%")
+    accuracy = nothing
+    if Y != nothing
+        @timeit to "calculate accuracy" accuracy = sum(predicts .== Y) / m
+        println("Accuracy is ", accuracy*100, "%")
+    end
 
     return predicts, accuracy
 end
