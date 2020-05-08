@@ -1,4 +1,4 @@
-using LinearAlgebra
+# using LinearAlgebra
 using TimerOutputs
 
 const to = TimerOutput()
@@ -34,50 +34,56 @@ b2 (1, 1)
 b1 (10, 1)
 ```
 """
-function initialize_parameters(layer_dims::Array{Int}, Y::Array)::Dict{String, Array{Float32}}
-    parameters = Dict{String, Array{Float32}}()
+function initialize_parameters(layer_dims::Array{Int}, Y::Array)::Dict{Integer, Tuple}
+    parameters = Dict{Integer, Tuple}()
     for i = 2:length(layer_dims)
         # randomly initialize weights and reduce their magnitude (leads to small weights, prevents gradient explosion)
-        @timeit to "Init weights" parameters[string("W", i-1)] = randn(Float32, layer_dims[i], layer_dims[i-1]) / sqrt(layer_dims[i-1]) # Xavier initialization
+        @timeit to "Init weights" weights = randn(Float32, layer_dims[i], layer_dims[i-1]) / Float32(sqrt(layer_dims[i-1])) # Xavier initialization
         # initialize biases to zero
-        @timeit to "Init biases" parameters[string("b", i-1)] = zeros(Float32, layer_dims[i], 1)
+        @timeit to "Init biases" biases = zeros(Float32, layer_dims[i], 1)
+        parameters[i-1] = (weights, biases)
     end
     return parameters
 end
 
-function forward_prop(X::Array{Float32}, parameters::Dict{String, Array{Float32}}, activations::Tuple)::Tuple{Array{Float32}, Dict{String, Array{Float32}}}
-    num_layers = length(parameters) ÷ 2  # number of layers in the network
+function forward_prop(X::Array{Float32}, parameters::Dict{Integer, Tuple}, activations::Tuple, num_layers)::Array{Float32}#, Dict{String, Array{Float32}}}
+    # num_layers = length(parameters)  # number of layers in the network
 
-    caches = Dict{String, Array{Float32}}()  # init dict to store Z and A values for backprop
+    # caches = Dict{String, Array{Float32}}()  # init dict to store Z and A values for backprop
 
     # A0 is X (input)
-    caches[string("A", 0)] = X
+    # caches[string("A", 0)] = X
 
-    Ai = Nothing
+    Ai = X
+
     for i = 1:num_layers
         # Z = W * A_prev + b
-        @timeit to "calculate Zi" begin
-            Wi = parameters[string("W", i)]
-            Ai_prev = caches[string("A", i-1)]
-            Zi = zeros(Float32, size(Wi)[1], size(Ai_prev)[2])
-            mul!(Zi, Wi, Ai_prev)
-            Zi .+= parameters[string("b", i)]
-        end
+        # @timeit to "calculate Zi" begin
+        # Wi = parameters[i][1]
+            # Ai_prev = caches[string("A", i-1)]
+            # Zi = zeros(Float32, size(Wi)[1], size(Ai_prev)[2])
+            # mul!(Zi, Wi, Ai_prev)
+            println("Size of W $i is $(size(parameters[i][1]))")
+            Zi = parameters[i][1] * Ai
+            println("Size of Zi is $(size(Zi))")
+            Zi = Zi .+ parameters[i][2]
+        # end
         # A = activation(Z)
-        @timeit to "calculate Ai" Ai = activations[i].(Zi)
+        # @timeit to "calculate Ai" 
+        Ai = activations[i].(Zi)
         # store A and Z for use in backprop
-        caches[string("Z", i)] = Zi
-        caches[string("A", i)] = Ai
+        # caches[string("Z", i)] = Zi
+        # caches[string("A", i)] = Ai
     end
 
-    return Ai, caches
+    return Ai
 end
 
 """
 Simple log binary loss
 """
 function cost_binary(Y::Array{Float32}, Ŷ::Array{Float32})::Float32
-    @assert length(Y) == length(Ŷ)
+    # @assert length(Y) == length(Ŷ)
     m = length(Y)
 
     cost = - sum(Y .* log.(Ŷ) .+ (1 .- Y) .* log.(1 .- Ŷ)) / m
@@ -86,7 +92,7 @@ end
 
 function backward_prop(Y::Array{Float32},
                        Ŷ::Array{Float32},
-                       parameters::Dict{String, Array{Float32}},
+                       parameters::Dict{Integer, Array{Float32}},
                        caches::Dict{String, Array{Float32}},
                        layer_dims::Array{Int},
                        activations::Tuple)::Dict{String, Array{Float32}}
